@@ -857,9 +857,9 @@ ${m.category === 'sports' ? `
                 
                 // Directly pass real dynamic USDC micro amount as explicit transaction value
                 const tx = await web3Signer.sendTransaction({ 
-                    to: currentUserAddress, 
-                    value: ethers.parseEther(amountVal.toString()) 
-                });
+    to: currentUserAddress, 
+    value: ethers.parseUnits(amountVal.toString(), 6)
+});
                 
                 triggerToastNotification("info", "Consensus Mining Active", "Confirming processing parameters...", tx.hash);
                 await tx.wait();
