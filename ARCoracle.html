@@ -655,9 +655,13 @@ if (accounts.length > 0) {
                     checkAndPromptNetwork();
                 }
             } catch (e) {
-                console.error(e);
-                triggerToastNotification("error", "Handshake Declined");
-            }
+    console.error("FULL ERROR:", e);
+
+    triggerToastNotification(
+        "error",
+        e?.message || e?.reason || "Handshake Declined"
+    );
+}
         }
 
         async function changeWalletAddress() {
