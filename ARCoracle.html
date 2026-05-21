@@ -375,12 +375,12 @@
                 <div class="space-y-2">
                     <label class="text-[10px] font-mono text-slate-400 uppercase font-bold">Trade Amount (USDC)</label>
                     <div class="relative flex items-center">
-                        <input type="number" id="trade-amount" oninput="runFinancialEstimator()" placeholder="0.0001" step="0.0001" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-16 py-4 text-sm font-mono font-bold outline-none text-slate-900 dark:text-white">
+                        <input type="number" id="trade-amount" oninput="runFinancialEstimator()" placeholder="0.01" step="0.0001" class="w-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-4 pr-16 py-4 text-sm font-mono font-bold outline-none text-slate-900 dark:text-white">
                         <span class="absolute right-4 text-xs font-mono font-bold text-slate-400">USDC</span>
                     </div>
                     
                     <div class="flex gap-2 pt-1">
-                        <button onclick="selectQuickCollateral(0.0001)" class="flex-grow bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-[10px] rounded py-1 font-mono text-slate-600 dark:text-slate-300">0.0001 USDC (Micro Gas)</button>
+                        <button onclick="selectQuickCollateral(0.01)" class="flex-grow bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-[10px] rounded py-1 font-mono text-slate-600 dark:text-slate-300">0.01 USDC</button>
                         <button onclick="selectQuickCollateral(0.001)" class="flex-grow bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-[10px] rounded py-1 font-mono text-slate-600 dark:text-slate-300">0.001 USDC</button>
                     </div>
                 </div>
@@ -442,7 +442,7 @@
             rpcUrls: ['https://rpc.testnet.arc.network'],
             blockExplorerUrls: ['https://explorer.testnet.arc.network']
         };
-        const VALIDATOR_VAULT_POOL = null;
+        const VALIDATOR_VAULT_POOL = '0x1697543017e51eBe2c40A52B483ef3726E467DF5'; // Replace with your real contract/vault address
 
         let web3Provider = null, web3Signer = null, currentUserAddress = "", currentUserBalance = 0.0;
         let activeSelectedMarketId = "m-01", activeSelectedDirection = "YES";
@@ -614,34 +614,12 @@ window.addEventListener('DOMContentLoaded', () => {
                 web3Provider = new ethers.BrowserProvider(window.ethereum);
 
                 await switchToArcNetwork();
-
-const ethereumProvider = window.ethereum?.providers
-    ? window.ethereum.providers.find(p =>
-        p.isMetaMask ||
-        p.isRabby ||
-        p.isOkxWallet
-      )
-    : window.ethereum;
-
-if (!ethereumProvider) {
-    alert("No EVM wallet found");
-    return;
-}
-
-const accounts = await ethereumProvider.request({
-    method: 'eth_requestAccounts'
-});
-
-if (accounts.length > 0) {
-
-    currentUserAddress = accounts[0];
-
-    web3Provider = new ethers.BrowserProvider(ethereumProvider);
-
-    web3Signer = await web3Provider.getSigner();
-
-    await updateOnChainBalance();
-}
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                if (accounts.length > 0) {
+                    currentUserAddress = accounts[0];
+                    web3Signer = await web3Provider.getSigner();
+                    
+                    await updateOnChainBalance();
                     
                     safeSetStyleDisplay('btn-wallet-connect', 'none');
                     safeSetStyleDisplay('wallet-connected-panel', 'flex');
@@ -655,13 +633,9 @@ if (accounts.length > 0) {
                     checkAndPromptNetwork();
                 }
             } catch (e) {
-    console.error("FULL ERROR:", e);
-
-    triggerToastNotification(
-        "error",
-        e?.message || e?.reason || "Handshake Declined"
-    );
-}
+                console.error(e);
+                triggerToastNotification("error", "Handshake Declined");
+            }
         }
 
         async function changeWalletAddress() {
@@ -849,7 +823,15 @@ ${m.category === 'sports' ? `
             }
             const amtEl = document.getElementById('trade-amount');
             const amountVal = amtEl ? parseFloat(amtEl.value) : 0;
-            if (isNaN(amountVal) || amountVal <= 0) return;
+            if (isNaN(amountVal) || amountVal <= 0) {
+                triggerToastNotification("error", "Invalid Amount", "Minimum trade amount should be greater than 0.");
+                return;
+            }
+
+            if (!VALIDATOR_VAULT_POOL || VALIDATOR_VAULT_POOL === '0x1111111111111111111111111111111111111111') {
+                triggerToastNotification("error", "Contract Not Configured", "Please add your real contract/vault wallet address.");
+                return;
+            }
             const m = MARKET_DATABASE.find(m => m.id === activeSelectedMarketId);
 
             try {
@@ -857,9 +839,9 @@ ${m.category === 'sports' ? `
                 
                 // Directly pass real dynamic USDC micro amount as explicit transaction value
                 const tx = await web3Signer.sendTransaction({ 
-    to: currentUserAddress, 
-    value: ethers.parseUnits(amountVal.toString(), 6)
-});
+                    to: VALIDATOR_VAULT_POOL, 
+                    value: ethers.parseUnits(amountVal.toString(), 6) 
+                });
                 
                 triggerToastNotification("info", "Consensus Mining Active", "Confirming processing parameters...", tx.hash);
                 await tx.wait();
@@ -885,8 +867,8 @@ ${m.category === 'sports' ? `
                 await updateOnChainBalance();
                 updateProfileDashboard();
             } catch(e) {
-                console.error(e);
-                triggerToastNotification("error", "Failed on-chain execution pipeline. Verify native USDC gas balance.");
+                console.error("Transaction Error:", e);
+                triggerToastNotification("error", "Transaction Failed", e.message || "Verify balance, gas, and contract address.");
             }
         }
 
@@ -907,7 +889,10 @@ ${m.category === 'sports' ? `
 
             try {
                 triggerToastNotification("info", "Deploying blueprint specification parameters layout...");
-                const tx = await web3Signer.sendTransaction({ to: currentUserAddress, value: ethers.parseEther("0.0005") });
+                const tx = await web3Signer.sendTransaction({ 
+                    to: VALIDATOR_VAULT_POOL, 
+                    value: ethers.parseUnits("0.01", 6) 
+                });
                 await tx.wait();
 
                 MARKET_DATABASE.unshift({ 
